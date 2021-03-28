@@ -40,7 +40,6 @@ void* player2(void* param);
 void* player3(void* param);
 
 //utlity functions to be shared between threads
-//These are not thread-safe, btw
 void shuffleDeck();
 void showDeck();
 void takeACard(std::vector<int>& hand);
