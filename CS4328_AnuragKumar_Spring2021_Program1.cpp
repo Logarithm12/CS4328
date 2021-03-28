@@ -533,12 +533,12 @@ int main(int argc, char* argv[]) {
 	pthread_attr_t attr;
 	pthread_mutex_init(&mutexDeck_or_Hand, NULL);
 	//handling the seed the user might or might not input
-	//if (argc != 2) {
-	//	std::cerr << "This program takes one integer as an argument" << std::endl;
-	//	return 1;
-	//}
-	//randomSeed = std::atoi(argv[argc - 1]);
-	randomSeed = 18;
+	if (argc != 2) {
+	std::cerr << "This program takes one integer as an argument" << std::endl;
+		return 1;
+	}
+	randomSeed = std::atoi(argv[argc - 1]);
+	//randomSeed = 18;
 	generator = std::default_random_engine(randomSeed);
 
 	//filling the vector to make it look like a real deck of cards (no jokers of course)
