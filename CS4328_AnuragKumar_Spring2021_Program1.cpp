@@ -1,8 +1,8 @@
 /*
 @author: Anurag Kumar
-@brief desc: 
-This is the program for 
-CS4328 Programming project 1 for the Spring 2021 
+@brief desc:
+This is the program for
+CS4328 Programming project 1 for the Spring 2021
 semester at Texas State University
 It models a game called Pair War where the objective of the
 game is to get pairs of cards
@@ -30,8 +30,8 @@ std::default_random_engine generator;
 std::string consoleOutput[4];
 
 pthread_t dealer_ID, p1_ID, p2_ID, p3_ID;
-pthread_mutex_t mutexDeck_or_Hand;
-
+pthread_mutex_t mutexDeck_or_Hand = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
 //thread functions
 void* dealer(void* param);
@@ -252,33 +252,33 @@ bool isWinningHand(std::vector<int>& hand) {
 }
 
 void* dealer(void* param) {
+	pthread_mutex_lock(&mutexDeck_or_Hand);
 	while (currentRound != 4) {
 		//wait for dealer's turn
-		while (currentTurn != 0 && hasRoundBeenWon == false) {
-			1;
+		while (currentTurn != 0) {
+			pthread_cond_signal(&cond);
+			pthread_cond_wait(&cond, &mutexDeck_or_Hand);
 		}
 		if (currentTurn == 0) {
 			if (!hasRoundBeenWon) {
 				//code to start a new round
-				pthread_mutex_lock(&mutexDeck_or_Hand);
 				dealCards();
 				turnAdvance();
-				pthread_mutex_unlock(&mutexDeck_or_Hand);
 			}
-			else { 
+			else {
 				//code to end the current round
 				//and put round results to console
-				pthread_mutex_lock(&mutexDeck_or_Hand);
 				++currentRound;
 				if (currentRound != 4)
 					hasRoundBeenWon = false;
 				for (int iter = 0; iter < 4; ++iter) {
 					std::cout << consoleOutput[iter];
 				}
-				pthread_mutex_unlock(&mutexDeck_or_Hand);
 			}
 		}
 	}
+	pthread_mutex_unlock(&mutexDeck_or_Hand);
+	pthread_cond_signal(&cond);
 	pthread_exit(0);
 	return NULL;
 }
@@ -290,16 +290,21 @@ void* player1(void* param) {
 	std::vector<int>* whichHand;
 	whichHand = &p1hand;
 
-
+	pthread_mutex_lock(&mutexDeck_or_Hand);
 	while (currentRound != 4) {
-		while (currentTurn != playerIndex && hasRoundBeenWon == false) {
-			1;
+		while (currentTurn != playerIndex) {
+			if (currentRound != 4) {
+				pthread_cond_signal(&cond);
+				pthread_cond_wait(&cond, &mutexDeck_or_Hand);
+			}
+			else {
+				break;
+			}
 		}
 		//This is to handle the in-round behavior
 		//The player can only do anything when it's their turn
 		//And in all other cases they are locked out of action
 		if (currentTurn == playerIndex && hasRoundBeenWon == false) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 			addToLogFile(whichPlayer);
 			logHand(*whichHand);
 
@@ -323,17 +328,15 @@ void* player1(void* param) {
 				addToLogFile(genDeckString());
 				turnAdvance();
 			}
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
 		//this logic is to handle the round end condition
 		//a string for the output is generated
 		//then the player exits the round
 		if (currentTurn == playerIndex && hasRoundBeenWon == true) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 
 			if (didThisThreadWin == true) {
 				didThisThreadWin = false;
-				
+
 				std::string tmpString = whichPlayer + "\n" + "HAND " +
 					std::to_string(whichHand->front()) + " " +
 					std::to_string(whichHand->back()) +
@@ -342,7 +345,7 @@ void* player1(void* param) {
 				consoleOutput[3] = genDeckString();
 			}
 			else {
-				
+
 				std::string tmpString = whichPlayer + "\n" + "HAND " +
 					std::to_string(whichHand->front()) + " \n" +
 					"WIN: no \n";
@@ -352,10 +355,12 @@ void* player1(void* param) {
 			addToLogFile(whichPlayer);
 			exitRound(*whichHand);
 			turnAdvance();
-
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
+
 	}
+
+	pthread_mutex_unlock(&mutexDeck_or_Hand);
+	pthread_cond_signal(&cond);
 	pthread_exit(0);
 	return NULL;
 }
@@ -367,15 +372,21 @@ void* player2(void* param) {
 	std::vector<int>* whichHand;
 	whichHand = &p2hand;
 
+	pthread_mutex_lock(&mutexDeck_or_Hand);
 	while (currentRound != 4) {
-		while (currentTurn != playerIndex && hasRoundBeenWon == false) {
-			1;
+		while (currentTurn != playerIndex) {
+			if (currentRound != 4) {
+				pthread_cond_signal(&cond);
+				pthread_cond_wait(&cond, &mutexDeck_or_Hand);
+			}
+			else {
+				break;
+			}
 		}
 		//This is to handle the in-round behavior
 		//The player can only do anything when it's their turn
 		//And in all other cases they are locked out of action	
 		if (currentTurn == playerIndex && hasRoundBeenWon == false) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 
 			addToLogFile(whichPlayer);
 			logHand(*whichHand);
@@ -400,17 +411,15 @@ void* player2(void* param) {
 				addToLogFile(genDeckString());
 				turnAdvance();
 			}
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
 		//this logic is to handle the round end condition
 		//a string for the output is generated
 		//then the player exits the round	
 		if (currentTurn == playerIndex && hasRoundBeenWon == true) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 
 			if (didThisThreadWin == true) {
 				didThisThreadWin = false;
-				
+
 				std::string tmpString = whichPlayer + "\n" + "HAND " +
 					std::to_string(whichHand->front()) + " " +
 					std::to_string(whichHand->back()) +
@@ -419,7 +428,7 @@ void* player2(void* param) {
 				consoleOutput[3] = genDeckString();
 			}
 			else {
-				
+
 				std::string tmpString = whichPlayer + "\n" + "HAND " +
 					std::to_string(whichHand->front()) + " \n" +
 					"WIN: no \n";
@@ -430,9 +439,10 @@ void* player2(void* param) {
 			exitRound(*whichHand);
 			turnAdvance();
 
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
 	}
+	pthread_mutex_unlock(&mutexDeck_or_Hand);
+	pthread_cond_signal(&cond);
 	pthread_exit(0);
 	return NULL;
 }
@@ -444,15 +454,21 @@ void* player3(void* param) {
 	std::vector<int>* whichHand;
 	whichHand = &p3hand;
 
+	pthread_mutex_lock(&mutexDeck_or_Hand);
 	while (currentRound != 4) {
 		//This is to handle the in-round behavior
 		//The player can only do anything when it's their turn
 		//And in all other cases they are locked out of action
-		while (currentTurn != playerIndex && hasRoundBeenWon == false) {
-			1;
+		while (currentTurn != playerIndex) {
+			if (currentRound != 4) {
+				pthread_cond_signal(&cond);
+				pthread_cond_wait(&cond, &mutexDeck_or_Hand);
+			}
+			else {
+				break;
+			}
 		}
 		if (currentTurn == playerIndex && hasRoundBeenWon == false) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 
 			addToLogFile(whichPlayer);
 			logHand(*whichHand);
@@ -477,17 +493,15 @@ void* player3(void* param) {
 				addToLogFile(genDeckString());
 				turnAdvance();
 			}
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
 		//this logic is to handle the round end condition
 		//a string for the output is generated
 		//then the player exits the round		
 		if (currentTurn == playerIndex && hasRoundBeenWon == true) {
-			pthread_mutex_lock(&mutexDeck_or_Hand);
 
 			if (didThisThreadWin == true) {
 				didThisThreadWin = false;
-	
+
 				std::string tmpString = whichPlayer + "\n" + "HAND " +
 					std::to_string(whichHand->front()) + " " +
 					std::to_string(whichHand->back()) +
@@ -505,10 +519,10 @@ void* player3(void* param) {
 			addToLogFile(whichPlayer);
 			exitRound(*whichHand);
 			turnAdvance();
-
-			pthread_mutex_unlock(&mutexDeck_or_Hand);
 		}
 	}
+	pthread_mutex_unlock(&mutexDeck_or_Hand);
+	pthread_cond_signal(&cond);
 	pthread_exit(0);
 	return NULL;
 }
@@ -519,11 +533,12 @@ int main(int argc, char* argv[]) {
 	pthread_attr_t attr;
 	pthread_mutex_init(&mutexDeck_or_Hand, NULL);
 	//handling the seed the user might or might not input
-	if (argc != 2) {
-		std::cerr << "This program takes one integer as an argument" << std::endl;
-		return 1;
-	}
-	randomSeed = std::atoi(argv[argc-1]);
+	//if (argc != 2) {
+	//	std::cerr << "This program takes one integer as an argument" << std::endl;
+	//	return 1;
+	//}
+	//randomSeed = std::atoi(argv[argc - 1]);
+	randomSeed = 18;
 	generator = std::default_random_engine(randomSeed);
 
 	//filling the vector to make it look like a real deck of cards (no jokers of course)
